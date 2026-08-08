@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Crear cuenta · HealthyRecord Eventos{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-16">
+  <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-8">
+    <h1 class="text-2xl font-extrabold text-center">Crea tu cuenta</h1>
+    <p class="text-sm text-brand-800/70 text-center mt-2">
+      Con tu usuario y contrasena veras el detalle completo de los proximos eventos y quienes participan.
+    </p>
+    <form method="POST" class="mt-6 space-y-4">
+      <div>
+        <label class="text-sm font-semibold" for="full_name">Nombre completo</label>
+        <input required id="full_name" name="full_name" type="text" placeholder="Nombre y apellido"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <div>
+        <label class="text-sm font-semibold" for="username">Usuario</label>
+        <input required id="username" name="username" type="text" placeholder="nombre_usuario"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <div>
+        <label class="text-sm font-semibold" for="email">Correo</label>
+        <input required id="email" name="email" type="email" placeholder="tucorreo@ejemplo.com"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <div>
+        <label class="text-sm font-semibold" for="password">Contrasena</label>
+        <input required id="password" name="password" type="password" minlength="6" placeholder="Minimo 6 caracteres"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-brand-500 text-white font-semibold hover:bg-brand-600 transition">
+        Crear cuenta
+      </button>
+    </form>
+    <p class="text-sm text-center text-brand-800/60 mt-6">
+      ¿Ya tienes cuenta? <a class="text-brand-500 font-semibold hover:underline" href="{{ url_for('login') }}">Inicia sesion</a>
+    </p>
+  </div>
+</section>
+{% endblock %}

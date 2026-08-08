@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesion · HealthyRecord Eventos{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-16">
+  <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-8">
+    <h1 class="text-2xl font-extrabold text-center">Iniciar sesion</h1>
+    <p class="text-sm text-brand-800/70 text-center mt-2">
+      Accede para ver el detalle de los proximos eventos y participantes.
+    </p>
+    <form method="POST" class="mt-6 space-y-4">
+      <div>
+        <label class="text-sm font-semibold" for="username">Usuario</label>
+        <input required id="username" name="username" type="text" placeholder="nombre_usuario"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <div>
+        <label class="text-sm font-semibold" for="password">Contrasena</label>
+        <input required id="password" name="password" type="password" placeholder="Tu contrasena"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-brand-500 text-white font-semibold hover:bg-brand-600 transition">
+        Ingresar
+      </button>
+    </form>
+    <p class="text-sm text-center text-brand-800/60 mt-6">
+      ¿Aun no tienes cuenta? <a class="text-brand-500 font-semibold hover:underline" href="{{ url_for('signup') }}">Crea una gratis</a>
+    </p>
+  </div>
+</section>
+{% endblock %}

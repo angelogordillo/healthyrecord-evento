@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}HealthyRecord Eventos · Fin de semana para solteros cerca de Santiago{% endblock %}
+{% block content %}
+
+<section class="relative overflow-hidden">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 grid md:grid-cols-2 gap-10 items-center">
+    <div>
+      <span class="inline-block bg-brand-100 text-brand-600 text-xs font-bold px-3 py-1 rounded-full mb-4">
+        SOLO PARA SOLTEROS(AS) · 18+
+      </span>
+      <h1 class="text-4xl sm:text-5xl font-extrabold leading-tight">
+        Un fin de semana para <span class="text-brand-500">conocer gente real</span>, cerca de Santiago.
+      </h1>
+      <p class="mt-5 text-lg text-brand-800/80">
+        Actividades de integracion pensadas para solteros y solteras: naturaleza, buena comida
+        y dinamicas para romper el hielo, en lugares seleccionados a menos de una hora de la ciudad.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="#registro" class="px-6 py-3 rounded-full bg-brand-500 text-white font-semibold hover:bg-brand-600 transition shadow">
+          Quiero recibir novedades
+        </a>
+        <a href="{{ url_for('signup') }}" class="px-6 py-3 rounded-full bg-white border border-brand-200 font-semibold hover:bg-brand-100 transition">
+          Crear cuenta y ver eventos
+        </a>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      {% for l in locations[:4] %}
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-brand-100 {{ 'translate-y-6' if loop.index in (2,3) else '' }}">
+          <div class="text-3xl">{{ l['emoji'] }}</div>
+          <div class="mt-2 font-semibold text-sm">{{ l['name'] }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="lugares" class="max-w-6xl mx-auto px-4 sm:px-6 py-14">
+  <h2 class="text-3xl font-extrabold text-center">Opciones de lugares</h2>
+  <p class="text-center text-brand-800/70 mt-2 max-w-2xl mx-auto">
+    Estos son algunos de los destinos donde organizamos nuestros encuentros de fin de semana,
+    todos a poca distancia de Santiago.
+  </p>
+  <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    {% for l in locations %}
+      <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-6 flex flex-col hover:shadow-md transition">
+        <div class="text-4xl">{{ l['emoji'] }}</div>
+        <h3 class="mt-3 font-bold text-lg">{{ l['name'] }}</h3>
+        <p class="text-xs font-semibold text-brand-500 mt-1">{{ l['area'] }}</p>
+        <p class="text-sm text-brand-800/70 mt-3 flex-1">{{ l['description'] }}</p>
+        <p class="text-xs text-brand-800/60 mt-4 border-t border-brand-100 pt-3">
+          <span class="font-semibold">Actividades:</span> {{ l['activities'] }}
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="bg-white border-y border-brand-100">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-14 text-center">
+    <h2 class="text-3xl font-extrabold">¿Como funciona?</h2>
+    <div class="mt-10 grid sm:grid-cols-3 gap-8 text-left">
+      <div>
+        <div class="w-10 h-10 rounded-full bg-brand-500 text-white flex items-center justify-center font-bold">1</div>
+        <h3 class="font-semibold mt-3">Dejanos tu correo</h3>
+        <p class="text-sm text-brand-800/70 mt-1">Recibe novedades sobre proximas fechas y lugares antes que nadie.</p>
+      </div>
+      <div>
+        <div class="w-10 h-10 rounded-full bg-brand-500 text-white flex items-center justify-center font-bold">2</div>
+        <h3 class="font-semibold mt-3">Crea tu cuenta</h3>
+        <p class="text-sm text-brand-800/70 mt-1">Con usuario y contrasena accedes al detalle completo de cada evento.</p>
+      </div>
+      <div>
+        <div class="w-10 h-10 rounded-full bg-brand-500 text-white flex items-center justify-center font-bold">3</div>
+        <h3 class="font-semibold mt-3">Confirma tu asistencia</h3>
+        <p class="text-sm text-brand-800/70 mt-1">Revisa quienes mas van y asegura tu cupo para el fin de semana.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="registro" class="max-w-2xl mx-auto px-4 sm:px-6 py-16">
+  <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-8">
+    <h2 class="text-2xl font-extrabold text-center">Recibe actualizaciones y novedades</h2>
+    <p class="text-sm text-brand-800/70 text-center mt-2">
+      Sin compromiso. Te avisamos por correo cuando salgan nuevas fechas y lugares.
+    </p>
+    <form method="POST" action="{{ url_for('subscribe') }}" class="mt-6 space-y-4">
+      <div>
+        <label class="text-sm font-semibold" for="name">Nombre</label>
+        <input required id="name" name="name" type="text" placeholder="Tu nombre"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <div>
+        <label class="text-sm font-semibold" for="email">Correo</label>
+        <input required id="email" name="email" type="email" placeholder="tucorreo@ejemplo.com"
+          class="mt-1 w-full rounded-xl border border-brand-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-400">
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-brand-500 text-white font-semibold hover:bg-brand-600 transition">
+        Quiero recibir novedades
+      </button>
+    </form>
+    <p class="text-xs text-center text-brand-800/50 mt-4">
+      ¿Ya quieres ver el detalle completo de los proximos eventos y quienes participan?
+      <a class="text-brand-500 font-semibold hover:underline" href="{{ url_for('signup') }}">Crea tu cuenta gratis</a>.
+    </p>
+  </div>
+</section>
+
+{% endblock %}

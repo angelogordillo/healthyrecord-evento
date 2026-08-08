@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}HealthyRecord Eventos{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff1ee', 100: '#ffe1da', 200: '#ffc3b6', 300: '#ff9c85',
+              400: '#fb6f4e', 500: '#f0492a', 600: '#dd3419', 700: '#b8280f',
+              800: '#932212', 900: '#791f14'
+            }
+          },
+          fontFamily: { sans: ['Poppins', 'ui-sans-serif', 'system-ui'] }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>body{font-family:'Poppins',ui-sans-serif,system-ui}</style>
+</head>
+<body class="bg-brand-50 text-brand-900 min-h-screen flex flex-col">
+
+  <nav class="bg-white/80 backdrop-blur sticky top-0 z-40 border-b border-brand-100">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-xl text-brand-600">
+        <span>💛</span> HealthyRecord <span class="font-normal text-brand-400">Eventos</span>
+      </a>
+      <div class="flex items-center gap-3 text-sm font-medium">
+        {% if current_user %}
+          <a href="{{ url_for('panel') }}" class="px-4 py-2 rounded-full hover:bg-brand-100 transition">Mi panel</a>
+          <span class="hidden sm:inline text-brand-400">Hola, {{ current_user.split(' ')[0] }}</span>
+          <a href="{{ url_for('logout') }}" class="px-4 py-2 rounded-full bg-brand-100 hover:bg-brand-200 transition">Salir</a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="px-4 py-2 rounded-full hover:bg-brand-100 transition">Iniciar sesion</a>
+          <a href="{{ url_for('signup') }}" class="px-4 py-2 rounded-full bg-brand-500 text-white hover:bg-brand-600 transition shadow-sm">Crear cuenta</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4 space-y-2 w-full">
+        {% for category, message in messages %}
+          <div class="rounded-xl px-4 py-3 text-sm font-medium {{ 'bg-red-100 text-red-700 border border-red-200' if category == 'error' else 'bg-green-100 text-green-700 border border-green-200' }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-brand-100 bg-white/60 mt-16">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-sm text-brand-400 flex flex-col sm:flex-row justify-between gap-2">
+      <span>© 2026 HealthyRecord Eventos · Santiago, Chile</span>
+      <span>Encuentros de fin de semana para conocer gente nueva</span>
+    </div>
+  </footer>
+</body>
+</html>
