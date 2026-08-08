@@ -35,6 +35,9 @@
       <div class="flex items-center gap-3 text-sm font-medium">
         {% if current_user %}
           <a href="{{ url_for('panel') }}" class="px-4 py-2 rounded-full hover:bg-brand-100 transition">Mi panel</a>
+          {% if is_admin %}
+            <a href="{{ url_for('admin') }}" class="px-4 py-2 rounded-full hover:bg-brand-100 transition">Admin</a>
+          {% endif %}
           <span class="hidden sm:inline text-brand-400">Hola, {{ current_user.split(' ')[0] }}</span>
           <a href="{{ url_for('logout') }}" class="px-4 py-2 rounded-full bg-brand-100 hover:bg-brand-200 transition">Salir</a>
         {% else %}

@@ -15,6 +15,12 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+ADMIN_USERNAMES = {
+    u.strip().lower()
+    for u in os.environ.get("ADMIN_USERNAMES", "").split(",")
+    if u.strip()
+}
+
 
 def login_required(view):
     @wraps(view)
@@ -26,9 +32,25 @@ def login_required(view):
     return wrapped
 
 
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Debes iniciar sesion para ver esa pagina.", "error")
+            return redirect(url_for("login"))
+        if session.get("username") not in ADMIN_USERNAMES:
+            flash("No tienes permiso para ver esa pagina.", "error")
+            return redirect(url_for("panel"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 @app.context_processor
 def inject_user():
-    return {"current_user": session.get("full_name")}
+    return {
+        "current_user": session.get("full_name"),
+        "is_admin": session.get("username") in ADMIN_USERNAMES,
+    }
 
 
 @app.route("/")
@@ -101,6 +123,7 @@ def signup():
 
     session["user_id"] = user_id
     session["full_name"] = full_name
+    session["username"] = username
     flash("Cuenta creada. Bienvenido(a), " + full_name + ".", "success")
     return redirect(url_for("panel"))
 
@@ -123,6 +146,7 @@ def login():
 
     session["user_id"] = user["id"]
     session["full_name"] = user["full_name"]
+    session["username"] = user["username"]
     flash("Hola de nuevo, " + user["full_name"] + ".", "success")
     return redirect(url_for("panel"))
 
@@ -211,6 +235,43 @@ def join_event(event_id):
 
     db.close()
     return redirect(url_for("panel"))
+
+
+@app.route("/admin")
+@admin_required
+def admin():
+    db = get_db()
+    subscribers = db.execute(
+        "SELECT name, email, created_at FROM subscribers ORDER BY created_at DESC"
+    ).fetchall()
+    users = db.execute(
+        "SELECT full_name, username, email, created_at FROM users ORDER BY created_at DESC"
+    ).fetchall()
+    events = db.execute(
+        """
+        SELECT e.*, l.name AS location_name
+        FROM events e JOIN locations l ON l.id = e.location_id
+        ORDER BY e.date_start
+        """
+    ).fetchall()
+
+    event_list = []
+    for e in events:
+        attendees = db.execute(
+            """
+            SELECT u.full_name, u.email, ep.created_at FROM event_participants ep
+            JOIN users u ON u.id = ep.user_id
+            WHERE ep.event_id = ?
+            ORDER BY ep.created_at
+            """,
+            (e["id"],),
+        ).fetchall()
+        event_list.append({"row": e, "attendees": attendees})
+
+    db.close()
+    return render_template(
+        "admin.html", subscribers=subscribers, users=users, events=event_list
+    )
 
 
 init_db()
