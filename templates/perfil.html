@@ -8,6 +8,38 @@
     afinidad con otros asistentes confirmados en cada evento.
   </p>
 
+  <div class="mt-8 bg-white rounded-2xl border border-brand-100 shadow-sm p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="font-bold text-lg">Perfil avanzado (opcional)</h2>
+        <p class="text-sm text-brand-800/70 mt-1">
+          Un test rapido de personalidad para afinar tu % de afinidad con otros asistentes.
+        </p>
+      </div>
+      <a href="{{ url_for('personality_test') }}"
+        class="text-sm font-semibold bg-brand-500 text-white px-4 py-2 rounded-full hover:bg-brand-600 transition whitespace-nowrap">
+        {{ 'Repetir test' if my_personality else 'Hacer el test' }}
+      </a>
+    </div>
+
+    {% if my_personality %}
+      <div class="mt-5 space-y-3">
+        {% for dim, label in dimension_labels.items() %}
+          <div class="flex items-center gap-3">
+            <span class="text-xs w-40 shrink-0">{{ label }}</span>
+            <div class="flex-1 h-2 bg-brand-50 rounded-full overflow-hidden">
+              <div class="h-full bg-brand-400" style="width: {{ my_personality[dim] }}%"></div>
+            </div>
+            <span class="text-xs font-semibold text-brand-500 w-10 text-right">{{ my_personality[dim]|round|int }}%</span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="text-xs text-brand-800/40 mt-4">
+        Guia informal, no es un diagnostico clinico ni una evaluacion psicologica profesional.
+      </p>
+    {% endif %}
+  </div>
+
   <form method="POST" class="mt-8 space-y-8">
     <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-6">
       <h2 class="font-bold text-lg mb-4">Intereses</h2>

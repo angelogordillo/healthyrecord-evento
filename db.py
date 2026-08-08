@@ -70,7 +70,44 @@ CREATE TABLE IF NOT EXISTS user_traits (
     trait_id INTEGER NOT NULL REFERENCES personality_traits(id),
     PRIMARY KEY (user_id, trait_id)
 );
+
+CREATE TABLE IF NOT EXISTS personality_scores (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    openness REAL NOT NULL,
+    conscientiousness REAL NOT NULL,
+    extraversion REAL NOT NULL,
+    agreeableness REAL NOT NULL,
+    stability REAL NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
+
+PERSONALITY_DIMENSIONS = [
+    "openness", "conscientiousness", "extraversion", "agreeableness", "stability",
+]
+
+PERSONALITY_QUESTIONS = [
+    {"id": "q1", "dimension": "openness", "reverse": False,
+     "text": "Me gusta explorar ideas, lugares o experiencias nuevas."},
+    {"id": "q2", "dimension": "openness", "reverse": True,
+     "text": "Prefiero quedarme con rutinas conocidas antes que probar algo distinto."},
+    {"id": "q3", "dimension": "conscientiousness", "reverse": False,
+     "text": "Suelo planificar las cosas con anticipacion."},
+    {"id": "q4", "dimension": "conscientiousness", "reverse": True,
+     "text": "Se me hace dificil mantener el orden en mis tareas."},
+    {"id": "q5", "dimension": "extraversion", "reverse": False,
+     "text": "Me energizo estando rodeado de gente."},
+    {"id": "q6", "dimension": "extraversion", "reverse": True,
+     "text": "Prefiero pasar tiempo a solas antes que en grupos grandes."},
+    {"id": "q7", "dimension": "agreeableness", "reverse": False,
+     "text": "Me resulta facil confiar en los demas."},
+    {"id": "q8", "dimension": "agreeableness", "reverse": True,
+     "text": "Suelo anteponer mis intereses antes que los de otros."},
+    {"id": "q9", "dimension": "stability", "reverse": False,
+     "text": "Mantengo la calma incluso en situaciones estresantes."},
+    {"id": "q10", "dimension": "stability", "reverse": True,
+     "text": "Me preocupo con facilidad por pequenos detalles."},
+]
 
 INTERESTS = [
     "Senderismo y naturaleza", "Cocina y gastronomia", "Cine y series",

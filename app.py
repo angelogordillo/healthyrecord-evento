@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from db import get_db, init_db
+from db import get_db, init_db, PERSONALITY_DIMENSIONS, PERSONALITY_QUESTIONS
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -44,7 +44,39 @@ def get_user_profile_ids(db, user_id):
     return interest_ids, trait_ids
 
 
-def compatibility_score(interests_a, traits_a, interests_b, traits_b):
+def get_personality_scores(db, user_id):
+    row = db.execute(
+        "SELECT * FROM personality_scores WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    if not row:
+        return None
+    return {d: row[d] for d in PERSONALITY_DIMENSIONS}
+
+
+def personality_similarity(scores_a, scores_b):
+    if not scores_a or not scores_b:
+        return None
+    avg_diff = sum(abs(scores_a[d] - scores_b[d]) for d in PERSONALITY_DIMENSIONS) / len(
+        PERSONALITY_DIMENSIONS
+    )
+    return 100 - avg_diff
+
+
+def compatibility_score(interests_a, traits_a, interests_b, traits_b,
+                         personality_a=None, personality_b=None):
+    interest_trait_score = _interest_trait_score(interests_a, traits_a, interests_b, traits_b)
+    pers_score = personality_similarity(personality_a, personality_b)
+
+    if interest_trait_score is None and pers_score is None:
+        return None
+    if pers_score is None:
+        return round(interest_trait_score)
+    if interest_trait_score is None:
+        return round(pers_score)
+    return round(0.5 * interest_trait_score + 0.5 * pers_score)
+
+
+def _interest_trait_score(interests_a, traits_a, interests_b, traits_b):
     set_a = {("i", i) for i in interests_a} | {("t", t) for t in traits_a}
     set_b = {("i", i) for i in interests_b} | {("t", t) for t in traits_b}
     if not set_a or not set_b:
@@ -53,7 +85,7 @@ def compatibility_score(interests_a, traits_a, interests_b, traits_b):
     total = len(set_a | set_b)
     if total == 0:
         return None
-    return round(100 * shared / total)
+    return 100 * shared / total
 
 
 def admin_required(view):
@@ -209,6 +241,7 @@ def profile():
     all_interests = db.execute("SELECT * FROM interests ORDER BY name").fetchall()
     all_traits = db.execute("SELECT * FROM personality_traits ORDER BY name").fetchall()
     my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
+    my_personality = get_personality_scores(db, session["user_id"])
     db.close()
 
     return render_template(
@@ -217,6 +250,70 @@ def profile():
         all_traits=all_traits,
         my_interests=my_interests,
         my_traits=my_traits,
+        my_personality=my_personality,
+        dimension_labels={
+            "openness": "Apertura a lo nuevo",
+            "conscientiousness": "Responsabilidad",
+            "extraversion": "Extraversion",
+            "agreeableness": "Amabilidad",
+            "stability": "Estabilidad emocional",
+        },
+    )
+
+
+PERSONALITY_LIKERT = [
+    (1, "Muy en desacuerdo"),
+    (2, "En desacuerdo"),
+    (3, "Neutral"),
+    (4, "De acuerdo"),
+    (5, "Muy de acuerdo"),
+]
+
+
+@app.route("/perfil/test", methods=["GET", "POST"])
+@login_required
+def personality_test():
+    if request.method == "POST":
+        answers = {}
+        for q in PERSONALITY_QUESTIONS:
+            raw = request.form.get(q["id"])
+            if raw not in {"1", "2", "3", "4", "5"}:
+                flash("Responde todas las preguntas del test.", "error")
+                return redirect(url_for("personality_test"))
+            value = int(raw)
+            answers[q["id"]] = 6 - value if q["reverse"] else value
+
+        scores = {}
+        for dim in PERSONALITY_DIMENSIONS:
+            dim_values = [answers[q["id"]] for q in PERSONALITY_QUESTIONS if q["dimension"] == dim]
+            scores[dim] = round(100 * (sum(dim_values) / len(dim_values) - 1) / 4, 1)
+
+        db = get_db()
+        db.execute(
+            """
+            INSERT INTO personality_scores
+                (user_id, openness, conscientiousness, extraversion, agreeableness, stability, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(user_id) DO UPDATE SET
+                openness=excluded.openness,
+                conscientiousness=excluded.conscientiousness,
+                extraversion=excluded.extraversion,
+                agreeableness=excluded.agreeableness,
+                stability=excluded.stability,
+                updated_at=excluded.updated_at
+            """,
+            (
+                session["user_id"], scores["openness"], scores["conscientiousness"],
+                scores["extraversion"], scores["agreeableness"], scores["stability"],
+            ),
+        )
+        db.commit()
+        db.close()
+        flash("Test completado. Tu perfil avanzado ya esta actualizado.", "success")
+        return redirect(url_for("profile"))
+
+    return render_template(
+        "perfil_test.html", questions=PERSONALITY_QUESTIONS, likert=PERSONALITY_LIKERT
     )
 
 
@@ -235,6 +332,7 @@ def panel():
     ).fetchall()
 
     my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
+    my_personality = get_personality_scores(db, session["user_id"])
 
     event_list = []
     for e in events:
@@ -258,7 +356,11 @@ def panel():
 
             if p["id"] != session["user_id"]:
                 their_interests, their_traits = get_user_profile_ids(db, p["id"])
-                score = compatibility_score(my_interests, my_traits, their_interests, their_traits)
+                their_personality = get_personality_scores(db, p["id"])
+                score = compatibility_score(
+                    my_interests, my_traits, their_interests, their_traits,
+                    my_personality, their_personality,
+                )
                 if score is not None:
                     matches.append({"name": display_name, "score": score})
 
@@ -344,13 +446,17 @@ def admin():
         ).fetchall()
 
         profiles = {a["id"]: get_user_profile_ids(db, a["id"]) for a in attendees}
+        personalities = {a["id"]: get_personality_scores(db, a["id"]) for a in attendees}
         pairs = []
         for i in range(len(attendees)):
             for j in range(i + 1, len(attendees)):
                 a, b = attendees[i], attendees[j]
                 interests_a, traits_a = profiles[a["id"]]
                 interests_b, traits_b = profiles[b["id"]]
-                score = compatibility_score(interests_a, traits_a, interests_b, traits_b)
+                score = compatibility_score(
+                    interests_a, traits_a, interests_b, traits_b,
+                    personalities[a["id"]], personalities[b["id"]],
+                )
                 if score is not None:
                     pairs.append({"a": a["full_name"], "b": b["full_name"], "score": score})
         pairs.sort(key=lambda p: p["score"], reverse=True)
