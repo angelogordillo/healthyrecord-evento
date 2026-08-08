@@ -48,7 +48,42 @@ CREATE TABLE IF NOT EXISTS event_participants (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(event_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS interests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS personality_traits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS user_interests (
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    interest_id INTEGER NOT NULL REFERENCES interests(id),
+    PRIMARY KEY (user_id, interest_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_traits (
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    trait_id INTEGER NOT NULL REFERENCES personality_traits(id),
+    PRIMARY KEY (user_id, trait_id)
+);
 """
+
+INTERESTS = [
+    "Senderismo y naturaleza", "Cocina y gastronomia", "Cine y series",
+    "Musica en vivo", "Viajar", "Lectura", "Deportes", "Arte y diseno",
+    "Tecnologia", "Baile", "Yoga y meditacion", "Mascotas", "Fotografia",
+    "Vino y cocteleria", "Juegos de mesa",
+]
+
+PERSONALITY_TRAITS = [
+    "Extrovertido/a", "Introvertido/a", "Aventurero/a", "Tranquilo/a",
+    "Creativo/a", "Organizado/a", "Espontaneo/a", "Detallista",
+    "Optimista", "Analitico/a", "Sensible", "Independiente",
+]
 
 LOCATIONS = [
     ("Refugio Cajon del Maipo", "Cajon del Maipo, a 1h de Santiago",
@@ -99,4 +134,18 @@ def init_db():
             EVENTS,
         )
         conn.commit()
+
+    interest_count = conn.execute("SELECT COUNT(*) AS c FROM interests").fetchone()["c"]
+    if interest_count == 0:
+        conn.executemany("INSERT INTO interests (name) VALUES (?)", [(i,) for i in INTERESTS])
+        conn.commit()
+
+    trait_count = conn.execute("SELECT COUNT(*) AS c FROM personality_traits").fetchone()["c"]
+    if trait_count == 0:
+        conn.executemany(
+            "INSERT INTO personality_traits (name) VALUES (?)",
+            [(t,) for t in PERSONALITY_TRAITS],
+        )
+        conn.commit()
+
     conn.close()

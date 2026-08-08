@@ -90,6 +90,33 @@
                 {% endfor %}
               </tbody>
             </table>
+            {% if item.pairs %}
+              <p class="text-xs font-semibold text-brand-800/70 mt-5 mb-2">
+                Reporte de compatibilidad (mayor afinidad primero{% if item.pairs|length == 30 %}, top 30{% endif %})
+              </p>
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left text-brand-800/50 text-xs uppercase">
+                    <th class="pb-2">Persona A</th>
+                    <th class="pb-2">Persona B</th>
+                    <th class="pb-2">Afinidad</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in item.pairs %}
+                    <tr class="border-t border-brand-50">
+                      <td class="py-2 pr-2">{{ p.a }}</td>
+                      <td class="py-2 pr-2">{{ p.b }}</td>
+                      <td class="py-2 font-semibold text-brand-500">{{ p.score }}%</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="text-xs text-brand-800/50 mt-3">
+                Sin datos de compatibilidad todavia (los asistentes deben completar su perfil de intereses).
+              </p>
+            {% endif %}
           {% else %}
             <p class="text-sm text-brand-800/50 mt-3">Nadie ha confirmado asistencia todavia.</p>
           {% endif %}

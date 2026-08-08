@@ -32,6 +32,30 @@ def login_required(view):
     return wrapped
 
 
+def get_user_profile_ids(db, user_id):
+    interest_ids = {
+        r["interest_id"]
+        for r in db.execute("SELECT interest_id FROM user_interests WHERE user_id = ?", (user_id,))
+    }
+    trait_ids = {
+        r["trait_id"]
+        for r in db.execute("SELECT trait_id FROM user_traits WHERE user_id = ?", (user_id,))
+    }
+    return interest_ids, trait_ids
+
+
+def compatibility_score(interests_a, traits_a, interests_b, traits_b):
+    set_a = {("i", i) for i in interests_a} | {("t", t) for t in traits_a}
+    set_b = {("i", i) for i in interests_b} | {("t", t) for t in traits_b}
+    if not set_a or not set_b:
+        return None
+    shared = len(set_a & set_b)
+    total = len(set_a | set_b)
+    if total == 0:
+        return None
+    return round(100 * shared / total)
+
+
 def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -158,6 +182,44 @@ def logout():
     return redirect(url_for("index"))
 
 
+@app.route("/perfil", methods=["GET", "POST"])
+@login_required
+def profile():
+    db = get_db()
+
+    if request.method == "POST":
+        interest_ids = [int(i) for i in request.form.getlist("interests")]
+        trait_ids = [int(i) for i in request.form.getlist("traits")]
+
+        db.execute("DELETE FROM user_interests WHERE user_id = ?", (session["user_id"],))
+        db.execute("DELETE FROM user_traits WHERE user_id = ?", (session["user_id"],))
+        db.executemany(
+            "INSERT INTO user_interests (user_id, interest_id) VALUES (?, ?)",
+            [(session["user_id"], i) for i in interest_ids],
+        )
+        db.executemany(
+            "INSERT INTO user_traits (user_id, trait_id) VALUES (?, ?)",
+            [(session["user_id"], t) for t in trait_ids],
+        )
+        db.commit()
+        db.close()
+        flash("Tu perfil se actualizo. Ya puedes ver tu afinidad con otros asistentes.", "success")
+        return redirect(url_for("profile"))
+
+    all_interests = db.execute("SELECT * FROM interests ORDER BY name").fetchall()
+    all_traits = db.execute("SELECT * FROM personality_traits ORDER BY name").fetchall()
+    my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
+    db.close()
+
+    return render_template(
+        "perfil.html",
+        all_interests=all_interests,
+        all_traits=all_traits,
+        my_interests=my_interests,
+        my_traits=my_traits,
+    )
+
+
 @app.route("/panel")
 @login_required
 def panel():
@@ -172,11 +234,13 @@ def panel():
         """
     ).fetchall()
 
+    my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
+
     event_list = []
     for e in events:
         participants = db.execute(
             """
-            SELECT u.full_name FROM event_participants ep
+            SELECT u.id, u.full_name FROM event_participants ep
             JOIN users u ON u.id = ep.user_id
             WHERE ep.event_id = ?
             ORDER BY ep.created_at
@@ -184,11 +248,21 @@ def panel():
             (e["id"],),
         ).fetchall()
         participant_names = []
+        matches = []
         for p in participants:
             parts = p["full_name"].split()
             first = parts[0]
             last_initial = (parts[1][0] + ".") if len(parts) > 1 else ""
-            participant_names.append((first + " " + last_initial).strip())
+            display_name = (first + " " + last_initial).strip()
+            participant_names.append(display_name)
+
+            if p["id"] != session["user_id"]:
+                their_interests, their_traits = get_user_profile_ids(db, p["id"])
+                score = compatibility_score(my_interests, my_traits, their_interests, their_traits)
+                if score is not None:
+                    matches.append({"name": display_name, "score": score})
+
+        matches.sort(key=lambda m: m["score"], reverse=True)
 
         joined = db.execute(
             "SELECT 1 FROM event_participants WHERE event_id = ? AND user_id = ?",
@@ -200,10 +274,12 @@ def panel():
             "participants": participant_names,
             "spots_left": e["capacity"] - len(participants),
             "joined": bool(joined),
+            "matches": matches,
         })
 
     db.close()
-    return render_template("panel.html", events=event_list)
+    has_profile = bool(my_interests or my_traits)
+    return render_template("panel.html", events=event_list, has_profile=has_profile)
 
 
 @app.route("/panel/eventos/<int:event_id>/unirse", methods=["POST"])
@@ -259,14 +335,27 @@ def admin():
     for e in events:
         attendees = db.execute(
             """
-            SELECT u.full_name, u.email, ep.created_at FROM event_participants ep
+            SELECT u.id, u.full_name, u.email, ep.created_at FROM event_participants ep
             JOIN users u ON u.id = ep.user_id
             WHERE ep.event_id = ?
             ORDER BY ep.created_at
             """,
             (e["id"],),
         ).fetchall()
-        event_list.append({"row": e, "attendees": attendees})
+
+        profiles = {a["id"]: get_user_profile_ids(db, a["id"]) for a in attendees}
+        pairs = []
+        for i in range(len(attendees)):
+            for j in range(i + 1, len(attendees)):
+                a, b = attendees[i], attendees[j]
+                interests_a, traits_a = profiles[a["id"]]
+                interests_b, traits_b = profiles[b["id"]]
+                score = compatibility_score(interests_a, traits_a, interests_b, traits_b)
+                if score is not None:
+                    pairs.append({"a": a["full_name"], "b": b["full_name"], "score": score})
+        pairs.sort(key=lambda p: p["score"], reverse=True)
+
+        event_list.append({"row": e, "attendees": attendees, "pairs": pairs[:30]})
 
     db.close()
     return render_template(

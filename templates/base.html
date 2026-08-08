@@ -35,6 +35,7 @@
       <div class="flex items-center gap-3 text-sm font-medium">
         {% if current_user %}
           <a href="{{ url_for('panel') }}" class="px-4 py-2 rounded-full hover:bg-brand-100 transition">Mi panel</a>
+          <a href="{{ url_for('profile') }}" class="px-4 py-2 rounded-full hover:bg-brand-100 transition">Mi perfil</a>
           {% if is_admin %}
             <a href="{{ url_for('admin') }}" class="px-4 py-2 rounded-full hover:bg-brand-100 transition">Admin</a>
           {% endif %}
