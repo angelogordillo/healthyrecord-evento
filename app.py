@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+from datetime import date
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
@@ -8,6 +9,20 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from db import get_db, init_db, PERSONALITY_DIMENSIONS, PERSONALITY_QUESTIONS
+
+MIN_AGE = 18
+MAX_AGE = 99
+
+
+def calculate_age(birth_date_str):
+    if not birth_date_str:
+        return None
+    try:
+        b = date.fromisoformat(birth_date_str)
+    except ValueError:
+        return None
+    today = date.today()
+    return today.year - b.year - ((today.month, today.day) < (b.month, b.day))
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -223,6 +238,52 @@ def profile():
         interest_ids = [int(i) for i in request.form.getlist("interests")]
         trait_ids = [int(i) for i in request.form.getlist("traits")]
 
+        birth_date = request.form.get("birth_date", "").strip()
+        age_pref_min = request.form.get("age_pref_min", "").strip()
+        age_pref_max = request.form.get("age_pref_max", "").strip()
+
+        if birth_date:
+            age = calculate_age(birth_date)
+            if age is None:
+                db.close()
+                flash("La fecha de nacimiento no es valida.", "error")
+                return redirect(url_for("profile"))
+            if age < MIN_AGE:
+                db.close()
+                flash("Debes ser mayor de 18 anos para usar HealthyRecord Eventos.", "error")
+                return redirect(url_for("profile"))
+            if age > MAX_AGE:
+                db.close()
+                flash("Revisa la fecha de nacimiento ingresada.", "error")
+                return redirect(url_for("profile"))
+        else:
+            birth_date = None
+
+        if age_pref_min and age_pref_max:
+            try:
+                age_pref_min = int(age_pref_min)
+                age_pref_max = int(age_pref_max)
+            except ValueError:
+                db.close()
+                flash("El rango de edad debe ser numerico.", "error")
+                return redirect(url_for("profile"))
+            if not (MIN_AGE <= age_pref_min <= MAX_AGE and MIN_AGE <= age_pref_max <= MAX_AGE):
+                db.close()
+                flash(f"El rango de edad debe estar entre {MIN_AGE} y {MAX_AGE} anos.", "error")
+                return redirect(url_for("profile"))
+            if age_pref_min > age_pref_max:
+                db.close()
+                flash("El rango de edad no es valido (el minimo es mayor que el maximo).", "error")
+                return redirect(url_for("profile"))
+        else:
+            age_pref_min = None
+            age_pref_max = None
+
+        db.execute(
+            "UPDATE users SET birth_date = ?, age_pref_min = ?, age_pref_max = ? WHERE id = ?",
+            (birth_date, age_pref_min, age_pref_max, session["user_id"]),
+        )
+
         db.execute("DELETE FROM user_interests WHERE user_id = ?", (session["user_id"],))
         db.execute("DELETE FROM user_traits WHERE user_id = ?", (session["user_id"],))
         db.executemany(
@@ -242,6 +303,10 @@ def profile():
     all_traits = db.execute("SELECT * FROM personality_traits ORDER BY name").fetchall()
     my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
     my_personality = get_personality_scores(db, session["user_id"])
+    me = db.execute(
+        "SELECT birth_date, age_pref_min, age_pref_max FROM users WHERE id = ?",
+        (session["user_id"],),
+    ).fetchone()
     db.close()
 
     return render_template(
@@ -251,6 +316,11 @@ def profile():
         my_interests=my_interests,
         my_traits=my_traits,
         my_personality=my_personality,
+        my_birth_date=me["birth_date"],
+        my_age_pref_min=me["age_pref_min"],
+        my_age_pref_max=me["age_pref_max"],
+        min_age=MIN_AGE,
+        max_age=MAX_AGE,
         dimension_labels={
             "openness": "Apertura a lo nuevo",
             "conscientiousness": "Responsabilidad",
@@ -333,12 +403,20 @@ def panel():
 
     my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
     my_personality = get_personality_scores(db, session["user_id"])
+    me = db.execute(
+        "SELECT age_pref_min, age_pref_max FROM users WHERE id = ?", (session["user_id"],)
+    ).fetchone()
+    my_age_pref = (
+        (me["age_pref_min"], me["age_pref_max"])
+        if me["age_pref_min"] and me["age_pref_max"]
+        else None
+    )
 
     event_list = []
     for e in events:
         participants = db.execute(
             """
-            SELECT u.id, u.full_name FROM event_participants ep
+            SELECT u.id, u.full_name, u.birth_date FROM event_participants ep
             JOIN users u ON u.id = ep.user_id
             WHERE ep.event_id = ?
             ORDER BY ep.created_at
@@ -362,7 +440,18 @@ def panel():
                     my_personality, their_personality,
                 )
                 if score is not None:
-                    matches.append({"name": display_name, "score": score})
+                    their_age = calculate_age(p["birth_date"])
+                    in_age_range = (
+                        my_age_pref is not None
+                        and their_age is not None
+                        and my_age_pref[0] <= their_age <= my_age_pref[1]
+                    )
+                    matches.append({
+                        "name": display_name,
+                        "score": score,
+                        "age": their_age,
+                        "in_age_range": in_age_range,
+                    })
 
         matches.sort(key=lambda m: m["score"], reverse=True)
 
@@ -422,9 +511,22 @@ def admin():
     subscribers = db.execute(
         "SELECT name, email, created_at FROM subscribers ORDER BY created_at DESC"
     ).fetchall()
-    users = db.execute(
-        "SELECT full_name, username, email, created_at FROM users ORDER BY created_at DESC"
+    users_rows = db.execute(
+        "SELECT full_name, username, email, birth_date, age_pref_min, age_pref_max, created_at "
+        "FROM users ORDER BY created_at DESC"
     ).fetchall()
+    users = [
+        {
+            "full_name": u["full_name"],
+            "username": u["username"],
+            "email": u["email"],
+            "age": calculate_age(u["birth_date"]),
+            "age_pref_min": u["age_pref_min"],
+            "age_pref_max": u["age_pref_max"],
+            "created_at": u["created_at"],
+        }
+        for u in users_rows
+    ]
     events = db.execute(
         """
         SELECT e.*, l.name AS location_name
@@ -435,15 +537,25 @@ def admin():
 
     event_list = []
     for e in events:
-        attendees = db.execute(
+        attendees_rows = db.execute(
             """
-            SELECT u.id, u.full_name, u.email, ep.created_at FROM event_participants ep
+            SELECT u.id, u.full_name, u.email, u.birth_date, ep.created_at FROM event_participants ep
             JOIN users u ON u.id = ep.user_id
             WHERE ep.event_id = ?
             ORDER BY ep.created_at
             """,
             (e["id"],),
         ).fetchall()
+        attendees = [
+            {
+                "id": a["id"],
+                "full_name": a["full_name"],
+                "email": a["email"],
+                "age": calculate_age(a["birth_date"]),
+                "created_at": a["created_at"],
+            }
+            for a in attendees_rows
+        ]
 
         profiles = {a["id"]: get_user_profile_ids(db, a["id"]) for a in attendees}
         personalities = {a["id"]: get_personality_scores(db, a["id"]) for a in attendees}

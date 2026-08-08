@@ -41,6 +41,8 @@
               <th class="pb-2">Nombre</th>
               <th class="pb-2">Usuario</th>
               <th class="pb-2">Correo</th>
+              <th class="pb-2">Edad</th>
+              <th class="pb-2">Busca</th>
               <th class="pb-2">Fecha</th>
             </tr>
           </thead>
@@ -50,10 +52,14 @@
                 <td class="py-2 pr-2">{{ u['full_name'] }}</td>
                 <td class="py-2 pr-2 text-brand-800/70">{{ u['username'] }}</td>
                 <td class="py-2 pr-2 text-brand-800/70">{{ u['email'] }}</td>
+                <td class="py-2 pr-2 text-brand-800/70">{{ u['age'] or '—' }}</td>
+                <td class="py-2 pr-2 text-brand-800/70">
+                  {% if u['age_pref_min'] and u['age_pref_max'] %}{{ u['age_pref_min'] }}-{{ u['age_pref_max'] }}{% else %}—{% endif %}
+                </td>
                 <td class="py-2 text-brand-800/50 whitespace-nowrap">{{ u['created_at'] }}</td>
               </tr>
             {% else %}
-              <tr><td colspan="4" class="py-4 text-brand-800/50">Aun no hay cuentas.</td></tr>
+              <tr><td colspan="6" class="py-4 text-brand-800/50">Aun no hay cuentas.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -76,6 +82,7 @@
               <thead>
                 <tr class="text-left text-brand-800/50 text-xs uppercase">
                   <th class="pb-2">Nombre</th>
+                  <th class="pb-2">Edad</th>
                   <th class="pb-2">Correo</th>
                   <th class="pb-2">Confirmo el</th>
                 </tr>
@@ -84,6 +91,7 @@
                 {% for a in item.attendees %}
                   <tr class="border-t border-brand-50">
                     <td class="py-2 pr-2">{{ a['full_name'] }}</td>
+                    <td class="py-2 pr-2 text-brand-800/70">{{ a['age'] or '—' }}</td>
                     <td class="py-2 pr-2 text-brand-800/70">{{ a['email'] }}</td>
                     <td class="py-2 text-brand-800/50 whitespace-nowrap">{{ a['created_at'] }}</td>
                   </tr>

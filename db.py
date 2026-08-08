@@ -157,9 +157,21 @@ def get_db():
     return conn
 
 
+def _add_column_if_missing(conn, table, column, coltype):
+    existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+
+
 def init_db():
     conn = get_db()
     conn.executescript(SCHEMA)
+
+    _add_column_if_missing(conn, "users", "birth_date", "TEXT")
+    _add_column_if_missing(conn, "users", "age_pref_min", "INTEGER")
+    _add_column_if_missing(conn, "users", "age_pref_max", "INTEGER")
+    conn.commit()
+
     count = conn.execute("SELECT COUNT(*) AS c FROM locations").fetchone()["c"]
     if count == 0:
         conn.executemany(

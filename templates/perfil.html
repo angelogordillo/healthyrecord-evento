@@ -42,6 +42,33 @@
 
   <form method="POST" class="mt-8 space-y-8">
     <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-6">
+      <h2 class="font-bold text-lg mb-1">Edad</h2>
+      <p class="text-sm text-brand-800/70 mb-4">
+        Tu fecha de nacimiento no se muestra a otros asistentes, solo se usa para calcular tu edad
+        y agruparte con personas de rangos similares. Debes ser mayor de {{ min_age }} anos.
+      </p>
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label class="text-xs font-semibold text-brand-800/70" for="birth_date">Fecha de nacimiento</label>
+          <input type="date" id="birth_date" name="birth_date" value="{{ my_birth_date or '' }}"
+            class="mt-1 w-full rounded-xl border border-brand-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-brand-800/70" for="age_pref_min">Edad minima de interes</label>
+          <input type="number" id="age_pref_min" name="age_pref_min" min="{{ min_age }}" max="{{ max_age }}"
+            value="{{ my_age_pref_min or '' }}"
+            class="mt-1 w-full rounded-xl border border-brand-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-brand-800/70" for="age_pref_max">Edad maxima de interes</label>
+          <input type="number" id="age_pref_max" name="age_pref_max" min="{{ min_age }}" max="{{ max_age }}"
+            value="{{ my_age_pref_max or '' }}"
+            class="mt-1 w-full rounded-xl border border-brand-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400">
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-6">
       <h2 class="font-bold text-lg mb-4">Intereses</h2>
       <div class="grid sm:grid-cols-2 gap-3">
         {% for i in all_interests %}
