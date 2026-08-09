@@ -80,7 +80,24 @@ CREATE TABLE IF NOT EXISTS personality_scores (
     stability REAL NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS music_styles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS user_music_styles (
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    music_style_id INTEGER NOT NULL REFERENCES music_styles(id),
+    PRIMARY KEY (user_id, music_style_id)
+);
 """
+
+MUSIC_STYLES = [
+    "New wave", "Electronica", "Pop", "Rock", "Reggaeton", "Indie",
+    "Jazz", "Salsa", "Cumbia", "Hip hop / Rap", "House / Techno",
+    "Balada", "Folclore", "Metal", "Funk / Soul", "Musica clasica",
+]
 
 PERSONALITY_DIMENSIONS = [
     "openness", "conscientiousness", "extraversion", "agreeableness", "stability",
@@ -195,6 +212,11 @@ def init_db():
             "INSERT INTO personality_traits (name) VALUES (?)",
             [(t,) for t in PERSONALITY_TRAITS],
         )
+        conn.commit()
+
+    music_count = conn.execute("SELECT COUNT(*) AS c FROM music_styles").fetchone()["c"]
+    if music_count == 0:
+        conn.executemany("INSERT INTO music_styles (name) VALUES (?)", [(m,) for m in MUSIC_STYLES])
         conn.commit()
 
     conn.close()

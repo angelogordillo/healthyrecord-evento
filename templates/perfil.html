@@ -83,6 +83,20 @@
     </div>
 
     <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-6">
+      <h2 class="font-bold text-lg mb-4">Estilos musicales</h2>
+      <div class="grid sm:grid-cols-2 gap-3">
+        {% for m in all_music_styles %}
+          <label class="flex items-center gap-2 text-sm bg-brand-50 rounded-xl px-3 py-2 cursor-pointer hover:bg-brand-100 transition">
+            <input type="checkbox" name="music_styles" value="{{ m['id'] }}"
+              {% if m['id'] in my_music %}checked{% endif %}
+              class="accent-brand-500">
+            {{ m['name'] }}
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-brand-100 shadow-sm p-6">
       <h2 class="font-bold text-lg mb-4">Rasgos de personalidad</h2>
       <div class="grid sm:grid-cols-2 gap-3">
         {% for t in all_traits %}

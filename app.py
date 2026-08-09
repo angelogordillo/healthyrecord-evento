@@ -56,7 +56,13 @@ def get_user_profile_ids(db, user_id):
         r["trait_id"]
         for r in db.execute("SELECT trait_id FROM user_traits WHERE user_id = ?", (user_id,))
     }
-    return interest_ids, trait_ids
+    music_ids = {
+        r["music_style_id"]
+        for r in db.execute(
+            "SELECT music_style_id FROM user_music_styles WHERE user_id = ?", (user_id,)
+        )
+    }
+    return interest_ids, trait_ids, music_ids
 
 
 def get_personality_scores(db, user_id):
@@ -77,9 +83,11 @@ def personality_similarity(scores_a, scores_b):
     return 100 - avg_diff
 
 
-def compatibility_score(interests_a, traits_a, interests_b, traits_b,
+def compatibility_score(interests_a, traits_a, music_a, interests_b, traits_b, music_b,
                          personality_a=None, personality_b=None):
-    interest_trait_score = _interest_trait_score(interests_a, traits_a, interests_b, traits_b)
+    interest_trait_score = _interest_trait_score(
+        interests_a, traits_a, music_a, interests_b, traits_b, music_b
+    )
     pers_score = personality_similarity(personality_a, personality_b)
 
     if interest_trait_score is None and pers_score is None:
@@ -91,9 +99,9 @@ def compatibility_score(interests_a, traits_a, interests_b, traits_b,
     return round(0.5 * interest_trait_score + 0.5 * pers_score)
 
 
-def _interest_trait_score(interests_a, traits_a, interests_b, traits_b):
-    set_a = {("i", i) for i in interests_a} | {("t", t) for t in traits_a}
-    set_b = {("i", i) for i in interests_b} | {("t", t) for t in traits_b}
+def _interest_trait_score(interests_a, traits_a, music_a, interests_b, traits_b, music_b):
+    set_a = {("i", i) for i in interests_a} | {("t", t) for t in traits_a} | {("m", m) for m in music_a}
+    set_b = {("i", i) for i in interests_b} | {("t", t) for t in traits_b} | {("m", m) for m in music_b}
     if not set_a or not set_b:
         return None
     shared = len(set_a & set_b)
@@ -237,6 +245,7 @@ def profile():
     if request.method == "POST":
         interest_ids = [int(i) for i in request.form.getlist("interests")]
         trait_ids = [int(i) for i in request.form.getlist("traits")]
+        music_ids = [int(i) for i in request.form.getlist("music_styles")]
 
         birth_date = request.form.get("birth_date", "").strip()
         age_pref_min = request.form.get("age_pref_min", "").strip()
@@ -286,6 +295,7 @@ def profile():
 
         db.execute("DELETE FROM user_interests WHERE user_id = ?", (session["user_id"],))
         db.execute("DELETE FROM user_traits WHERE user_id = ?", (session["user_id"],))
+        db.execute("DELETE FROM user_music_styles WHERE user_id = ?", (session["user_id"],))
         db.executemany(
             "INSERT INTO user_interests (user_id, interest_id) VALUES (?, ?)",
             [(session["user_id"], i) for i in interest_ids],
@@ -294,6 +304,10 @@ def profile():
             "INSERT INTO user_traits (user_id, trait_id) VALUES (?, ?)",
             [(session["user_id"], t) for t in trait_ids],
         )
+        db.executemany(
+            "INSERT INTO user_music_styles (user_id, music_style_id) VALUES (?, ?)",
+            [(session["user_id"], m) for m in music_ids],
+        )
         db.commit()
         db.close()
         flash("Tu perfil se actualizo. Ya puedes ver tu afinidad con otros asistentes.", "success")
@@ -301,7 +315,8 @@ def profile():
 
     all_interests = db.execute("SELECT * FROM interests ORDER BY name").fetchall()
     all_traits = db.execute("SELECT * FROM personality_traits ORDER BY name").fetchall()
-    my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
+    all_music_styles = db.execute("SELECT * FROM music_styles ORDER BY name").fetchall()
+    my_interests, my_traits, my_music = get_user_profile_ids(db, session["user_id"])
     my_personality = get_personality_scores(db, session["user_id"])
     me = db.execute(
         "SELECT birth_date, age_pref_min, age_pref_max FROM users WHERE id = ?",
@@ -313,8 +328,10 @@ def profile():
         "perfil.html",
         all_interests=all_interests,
         all_traits=all_traits,
+        all_music_styles=all_music_styles,
         my_interests=my_interests,
         my_traits=my_traits,
+        my_music=my_music,
         my_personality=my_personality,
         my_birth_date=me["birth_date"],
         my_age_pref_min=me["age_pref_min"],
@@ -401,7 +418,7 @@ def panel():
         """
     ).fetchall()
 
-    my_interests, my_traits = get_user_profile_ids(db, session["user_id"])
+    my_interests, my_traits, my_music = get_user_profile_ids(db, session["user_id"])
     my_personality = get_personality_scores(db, session["user_id"])
     me = db.execute(
         "SELECT age_pref_min, age_pref_max FROM users WHERE id = ?", (session["user_id"],)
@@ -433,10 +450,10 @@ def panel():
             participant_names.append(display_name)
 
             if p["id"] != session["user_id"]:
-                their_interests, their_traits = get_user_profile_ids(db, p["id"])
+                their_interests, their_traits, their_music = get_user_profile_ids(db, p["id"])
                 their_personality = get_personality_scores(db, p["id"])
                 score = compatibility_score(
-                    my_interests, my_traits, their_interests, their_traits,
+                    my_interests, my_traits, my_music, their_interests, their_traits, their_music,
                     my_personality, their_personality,
                 )
                 if score is not None:
@@ -469,7 +486,7 @@ def panel():
         })
 
     db.close()
-    has_profile = bool(my_interests or my_traits)
+    has_profile = bool(my_interests or my_traits or my_music)
     return render_template("panel.html", events=event_list, has_profile=has_profile)
 
 
@@ -563,10 +580,10 @@ def admin():
         for i in range(len(attendees)):
             for j in range(i + 1, len(attendees)):
                 a, b = attendees[i], attendees[j]
-                interests_a, traits_a = profiles[a["id"]]
-                interests_b, traits_b = profiles[b["id"]]
+                interests_a, traits_a, music_a = profiles[a["id"]]
+                interests_b, traits_b, music_b = profiles[b["id"]]
                 score = compatibility_score(
-                    interests_a, traits_a, interests_b, traits_b,
+                    interests_a, traits_a, music_a, interests_b, traits_b, music_b,
                     personalities[a["id"]], personalities[b["id"]],
                 )
                 if score is not None:
